@@ -297,10 +297,21 @@ sf_fun venv (Ssym x) =
 sf_fun _ x = error ("devrait être un identifiant: " ++ showSexp x)
 
 sf_if :: SpecialForm
-sf_if _venv _sc =  error "¡¡COMPLÉTER!! sf_if"
+--start
+sf_if venv cond =  Lpending (Lelab (\e1 ->
+                            Lpending (Lelab (\e2 ->
+                                Lif (s2l venv cond) (s2l venv e1) (s2l venv e2)))))
+--end
 
 sf_let :: SpecialForm
-sf_let _venv _decls = error "¡¡COMPLÉTER!! sf_let"
+---start
+sf_let venv decls = Lpending (Lelab (\body -> let_decls venv (sexp2list decls) (s2l venv body))) 
+
+let_decls :: VEnv -> [Sexp] -> Lexp -> Lexp
+let_decls venv ((Scons (Scons Snil (Ssym x)) val) : []) body = Llet x (s2l venv val) body
+let_decls venv ((Scons (Scons Snil (Ssym x)) val) : xs) body = Llet x (s2l venv val) (let_decls venv xs body)
+let_decls _ _ _ = error("Pas la bonne forme")
+--end
 
 sf_quote :: SpecialForm
 sf_quote _venv s = Lquote (h2p_sexp s)
@@ -397,6 +408,19 @@ synth tenv (Lapp e1 e2) =
       _ -> error ("Not a function: " ++ show e1)
 synth tenv (Llet x e1 e2) = synth (minsert tenv x (synth tenv e1)) e2
 -- ¡¡COMPLÉTER!!
+--start
+synth tenv (Lif cond e1 e2) = 
+    case synth tenv cond of
+        Tprim "Bool" -> 
+            let 
+                t1 = synth tenv e1
+                t2 = synth tenv e2
+            in 
+                if t1 == t2 then t1
+                else error("mauvaise typage")
+        _ -> error("la condition n'est pas un Bool")
+
+--end
 synth _tenv e = error ("Incapable de trouver le type de: " ++ (show e))
 
 
@@ -532,6 +556,13 @@ eval venv (Llet x e1 e2) = eval (minsert venv x (eval venv e1)) e2
 eval venv (Lfun x e) = Vfun (\ v -> eval (minsert venv x v) e)
 eval _ (Lpending e) = error ("Expression incomplète: " ++ show e)
 -- ¡¡COMPLÉTER!!
+--start
+eval venv (Lif cond e1 e2) = 
+    case eval venv cond of
+        Vnum 1 -> eval venv e1
+        Vnum 0 -> eval venv e2
+        _ -> error("La condition n'est pas un bool")
+--end
 
 -- État de l'évaluateur.
 type EState = ((TEnv, VEnv),       -- Contextes de typage et d'évaluation.
